@@ -48,11 +48,7 @@ uint8_t TempSensors_init () {
   uint8_t _count = 0;
   for (int i = 0; i <  ONE_WIRE_LENGTH; i++) {
     Dallas_Library[i].begin();               // initializing the sensors
-  }
-  for (int i = 0; i <  ONE_WIRE_LENGTH; i++) {
     _count += Dallas_Library[i].getDeviceCount();// getting number of sensors
-  }
-  for (int i = 0; i <  ONE_WIRE_LENGTH; i++) {
     Dallas_Library[i].requestTemperatures(); // requesting data
   }
   return _count;
@@ -63,8 +59,8 @@ uint8_t TempSensors_init () {
    Modifing pointer for one sensor with address and value
 */
 void TempSensors_getTemp( oneWire_struct **_sensor) {
-  for (int i = 0; i < 5; i++) {
-    oneWire[0].search((*_sensor + i)->address);
+  for (int i = 0; i <= 4; i++) {
+    oneWire[0].search((*_sensor + i)->address); 
     (*_sensor + i)->value = Dallas_Library[0].getTempC((*_sensor + i)->address);
     (*_sensor + i)->value -= CALLIBRATION;
   }
@@ -81,15 +77,12 @@ void TempSensors_getTemp( oneWire_struct **_sensor) {
 
 void ReadSensors(oneWire_struct TempSensor[]) {
   // Create a pointer to pass in the full array of structures
-  for ( int i = 0; i < ONE_WIRE_LENGTH; i++) {
-    pOneWire = &TempSensor[0];
-  }
+  pOneWire = &TempSensor[0];
 
   // Getting temperature
-  for (int i = 0; i < ONE_WIRE_LENGTH; i ++) {
-    TempSensors_getTemp(&pOneWire);
-  }
+  TempSensors_getTemp(&pOneWire);
 }
+
 // ------------------SETUP--------------------//
 void setup() {
   /* Initializing OneWire Sensors */
