@@ -59,20 +59,15 @@ uint8_t TempSensors_init () {
    Modifing pointer for one sensor with address and value
 */
 void TempSensors_getTemp( oneWire_struct **_sensor) {
-  for (int i = 0; i <= 4; i++) {
-    oneWire[0].search((*_sensor + i)->address); 
-    (*_sensor + i)->value = Dallas_Library[0].getTempC((*_sensor + i)->address);
-    (*_sensor + i)->value -= CALLIBRATION;
+  int index = 0;
+  for (int i = 0; i <= ONE_WIRE_LENGTH; i++) {
+    while (oneWire[i].search((*_sensor + index)->address)) {
+      //Serial.println("index: " + String(index));
+      (*_sensor + index)->value = Dallas_Library[i].getTempC((*_sensor + index)->address);
+      (*_sensor + index)->value -= CALLIBRATION;
+      index++;
+    }
   }
-  oneWire[1].search((*_sensor + 4)->address);
-  (*_sensor + 4)->value = Dallas_Library[1].getTempC((*_sensor + 4)->address);
-  (*_sensor + 4)->value -= CALLIBRATION;
-  oneWire[2].search((*_sensor + 5)->address);
-  (*_sensor + 5)->value = Dallas_Library[2].getTempC((*_sensor + 5)->address);
-  (*_sensor + 5)->value -= CALLIBRATION;
-  oneWire[3].search((*_sensor + 6)->address);
-  (*_sensor + 6)->value = Dallas_Library[3].getTempC((*_sensor + 6)->address);
-  (*_sensor + 6)->value -= CALLIBRATION;
 }
 
 void ReadSensors(oneWire_struct TempSensor[]) {
@@ -81,6 +76,22 @@ void ReadSensors(oneWire_struct TempSensor[]) {
 
   // Getting temperature
   TempSensors_getTemp(&pOneWire);
+}
+
+void PrintValues(oneWire_struct TempSensor[]) {
+  Serial.println("Number of sensors: " + String(oneWire_count));
+  // Display current sensor readings and addresses
+  for (uint8_t i = 0; i < oneWire_count; i++) {
+    Serial.print("Sensor[" + String(i) + "]: " + String(TempSensor[i].value));
+    Serial.print("\t[");
+    Serial.print(int(TempSensor[i].address[0]), HEX);
+    for (int x = 1; x < ADDR_LENGTH; x++) {
+      Serial.print(", ");
+      Serial.print(int(TempSensor[i].address[x]), HEX);
+    }
+    Serial.println("]");
+  }
+  Serial.println("\n");
 }
 
 // ------------------SETUP--------------------//
@@ -100,39 +111,18 @@ void setup() {
   ReadSensors(TempSensor);
 
 #if DEBUG // -------------------
-  Serial.println("Number of sensors: " + String(oneWire_count));
- // Display current sensor readings and addresses
-  for (uint8_t i = 0; i < oneWire_count; i++) {
-    Serial.print("Sensor[" + String(i) + "]: " + String(TempSensor[i].value));
-    Serial.print("\t[");
-    Serial.print(int(TempSensor[i].address[0]), HEX);
-    for (int x = 1; x < ADDR_LENGTH; x++) {
-      Serial.print(", ");
-      Serial.print(int(TempSensor[i].address[x]), HEX);
-    }
-    Serial.println("]");
-  }
-  Serial.println("\n");
+  PrintValues(TempSensor);
 #endif  // ---------------------
 }
 
 void loop() {
-  //Dallas_Library[0].requestTemperatures();
   oneWire_count = TempSensors_init();       // Getting number of sensors
   oneWire_struct TempSensor[oneWire_count]; // structure that holds the sensors
   ReadSensors(TempSensor);
 
   // Display current sensor readings and addresses
-  for (uint8_t i = 0; i < oneWire_count; i++) {
-    Serial.print("Sensor[" + String(i) + "]: " + String(TempSensor[i].value));
-    Serial.print("\t[");
-    Serial.print(int(TempSensor[i].address[0]), HEX);
-    for (int x = 1; x < ADDR_LENGTH; x++) {
-      Serial.print(", ");
-      Serial.print(int(TempSensor[i].address[x]), HEX);
-    }
-    Serial.println("]");
-  }
-  Serial.println("\n");
+  PrintValues(TempSensor);
+
+  // Enforce sample rate
   delay(SAMPLE_RATE);
 }
