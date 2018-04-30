@@ -1,7 +1,8 @@
 /*
-   Reading Temperature Data using esp8266 12F
-   Date: Nov 21, 2017
+   Reading Temperature Data using Arduino Nano
+   Date: Apr 30, 2018
 */
+
 #include <OneWire.h>                // Library for One-Wire interface
 #include <DallasTemperature.h>      // Library for DS18B20 temp. sensor
 #include <stdio.h>
@@ -36,7 +37,6 @@ DallasTemperature Dallas_Library[] = {
 struct oneWire_struct {
   byte address[ADDR_LENGTH];
   float value;
-  int index;
 };
 
 oneWire_struct *pOneWire;
@@ -56,7 +56,6 @@ uint8_t TempSensors_init () {
     Dallas_Library[i].requestTemperatures(); // requesting data
   }
   return _count;
-
 }
 
 /*
@@ -64,7 +63,7 @@ uint8_t TempSensors_init () {
    Modifing pointer for one sensor with address and value
 */
 void TempSensors_getTemp( oneWire_struct **_sensor) {
-  for (int i = 0; i < 4; i++) {
+  for (int i = 0; i < 5; i++) {
     oneWire[0].search((*_sensor + i)->address);
     (*_sensor + i)->value = Dallas_Library[0].getTempC((*_sensor + i)->address);
     (*_sensor + i)->value -= CALLIBRATION;
