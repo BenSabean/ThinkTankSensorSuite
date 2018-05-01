@@ -120,8 +120,10 @@ void loop() {
   oneWire_struct TempSensor[oneWire_count]; // structure that holds the sensors
   ReadSensors(TempSensor);
 
+#if DEBUG // -------------------
   // Display current sensor readings and addresses
   PrintValues(TempSensor);
+#endif  // ---------------------
 
   // Enforce sample rate
   delay(SAMPLE_RATE);
