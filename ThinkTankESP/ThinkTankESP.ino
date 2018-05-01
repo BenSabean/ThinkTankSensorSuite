@@ -1,17 +1,13 @@
 /*
-   AERClient library Example Code
-   Date: Feb 24, 2018
+   Think Tank ESP Communication 
+   Date: May 1, 2018
 */
 
-#include <ESP8266WiFi.h>          // ESP WiFi Libarary
-#include <PubSubClient.h>         // MQTT publisher/subscriber client 
 #include <AERClient.h>
 
-//////////////////////////////////////
-//    CHANGE TO YOUR UNIQUE ID      //
-#define DEVICE_ID 8                 //
-//                                  //
-//////////////////////////////////////
+
+// This device's unique ID    
+#define DEVICE_ID 8                
 
 #define BUFFSIZE 20
 
