@@ -12,6 +12,7 @@
 #define BUFFSIZE 20
 #define BUTTON 14
 #define STATUS_LIGHT 13
+#define AP_SSID  "ESP Network Setup"
 
 /* Wifi setup */
 char ssid[] =        "";
@@ -21,19 +22,22 @@ char msg[BUFFSIZE];  // Container for serial message
 bool apMode = false;
 
 /* Create Library Object password */
-//AERClient aerServer(DEVICE_ID);
+AERClient aerServer(DEVICE_ID);
 ESP8266WebServer server(80);
 
 //login page, also called for disconnect
 void handleSubmit() {
+  Serial.println("GET: Submit"); 
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
+  WiFi.mode(WIFI_STA);
   apMode = false;
 }
 
 //root page can be accessed only if authentification is ok
 void handleRoot() {
+  Serial.println("GET: Root"); 
   String msg;
   if (server.hasArg("SSID") && server.hasArg("PASSWORD")) {
     Serial.println("SSID: " + server.arg("SSID"));
@@ -48,6 +52,7 @@ void handleRoot() {
 }
 
 void handleNotFound() {
+  Serial.println("GET: Unknown resource"); 
   String message = "File Not Found\n\n";
   message += "URI: ";
   message += server.uri();
@@ -69,7 +74,7 @@ void btnHandler() {
   // AP SERVER
   Serial.print("Setting soft-AP ... ");
   WiFi.mode(WIFI_AP_STA);
-  Serial.println(WiFi.softAP(ssid) ? "Ready" : "Failed");
+  Serial.println(WiFi.softAP(AP_SSID) ? "Ready" : "Failed");
   Serial.println("");
 
   // Wait for connection
@@ -77,11 +82,13 @@ void btnHandler() {
     delay(500);
     Serial.print(".");
   }
-  Serial.println("");
+  Serial.println("Connected!");
+  Serial.println("------- WiFi DEBUG ------- ");
   Serial.print("Connected to ");
   Serial.println(ssid);
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
+  WiFi.printDiag(Serial);
 
 
   server.on("/", handleRoot);
@@ -105,14 +112,14 @@ void btnHandler() {
 void setup()
 {
   // Set pins and baud rate
-  Serial.begin(9200);
+  Serial.begin(9600);
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(STATUS_LIGHT, OUTPUT);
 
   // Initialization and connection to WiFi
-  //aerServer.init(ssid, password);
+  aerServer.init(ssid, password);
   Serial.println("Connected!");
-  //aerServer.debug();
+  aerServer.debug();
   attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
 }
 
@@ -129,12 +136,12 @@ void loop()
     if (Serial.available()) {
       Serial.readString().toCharArray(msg, BUFFSIZE);
       Serial.print("Got: ");    Serial.println(msg);
-      /*if (aerServer.publish("Test", msg)) {
+      if (aerServer.publish("Test", msg)) {
         Serial.println("Msg Sent!");
       }
       else {
         Serial.println("Msg Failed!");
-      }*/
+      }
     }
   }
 }
