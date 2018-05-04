@@ -74,10 +74,13 @@ void handleRoot() {
     server.arg("PASSWORD").toCharArray(newPw, BUFFSIZE);
     Serial.println("SSID: " + String(newSSID));
     Serial.println("Password: " + String(newPw));
+
     for (int i = 0; i < BUFFSIZE; i++) {
       EEPROM.write(i, newSSID[i]);              // Write SSID to EEPROM
       EEPROM.write((i + BUFFSIZE), newPw[i]);   // Write Password to EEPROM
     }
+    EEPROM.commit();
+
     server.sendContent("HTTP/1.1 301 OK\r\nLocation: /success\r\nCache-Control: no-cache\r\n\r\n");
     return;
   }
@@ -155,19 +158,18 @@ void clearEEPROM() {
 
 void setup()
 {
-  // Start communication with EEPROM
-  EEPROM.begin(512);
-  //clearEEPROM();
-  
   // Set pins and baud rate
   Serial.begin(9600);
   delay(10);  // Wait for serial port to connect
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(STATUS_LIGHT, OUTPUT);
-
   Serial.println("\nStart");
+  
+  // Start communication with EEPROM
+  EEPROM.begin(512);
   getString(0);
   getString(BUFFSIZE);
+  
   // Initialization and connection to WiFi
   aerServer.init(ssid, password);
   Serial.println("Connected!");
