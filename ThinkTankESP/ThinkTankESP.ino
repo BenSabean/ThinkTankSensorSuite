@@ -5,6 +5,7 @@
 
 #include <AERClient.h>
 #include <ESP8266WebServer.h>
+#include <EEPROM.h>
 
 // This device's unique ID
 #define DEVICE_ID 8
@@ -19,18 +20,44 @@ char ssid[] =        "";
 char password[] =    "";
 
 char msg[BUFFSIZE];  // Container for serial message
-bool apMode = false;
+bool apMode = false; // Flag to dermine current mode of operation
 
 /* Create Library Object password */
 AERClient aerServer(DEVICE_ID);
 ESP8266WebServer server(80);
 
-//login page, also called for disconnect
+void waitForConnect() {
+  while (WiFi.status() != WL_CONNECTED) {
+    delay(500);
+    Serial.print(".");
+  }
+
+  // Wi-Fi debug info
+  Serial.println("Connected!");
+  Serial.println("------- WiFi DEBUG ------- ");
+  Serial.print("Connected to ");
+  Serial.println(ssid);
+  Serial.print("IP address: ");
+  Serial.println(WiFi.localIP());
+  WiFi.printDiag(Serial);
+  Serial.println();
+}
+
+void getString(int startAddr) {
+  Serial.println("EEPROM(" + String(startAddr) + "): ");
+  for (int i = 0; i < BUFFSIZE; i ++) {
+    Serial.print(char(EEPROM.read(startAddr + i)));
+  }
+  Serial.println();
+}
+
 void handleSubmit() {
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   WiFi.mode(WIFI_STA);
+  getString(0);         // Username
+  getString(BUFFSIZE);   // Password
   waitForConnect();
   apMode = false;
 }
@@ -39,8 +66,18 @@ void handleSubmit() {
 void handleRoot() {
   String msg;
   if (server.hasArg("SSID") && server.hasArg("PASSWORD")) {
-    Serial.println("SSID: " + server.arg("SSID"));
-    Serial.println("Password: " + server.arg("PASSWORD"));
+    char newSSID[BUFFSIZE];
+    char newPw[BUFFSIZE];
+    memset(newSSID, NULL, BUFFSIZE);
+    memset(newPw, NULL, BUFFSIZE);
+    server.arg("SSID").toCharArray(newSSID, BUFFSIZE);
+    server.arg("PASSWORD").toCharArray(newPw, BUFFSIZE);
+    Serial.println("SSID: " + String(newSSID));
+    Serial.println("Password: " + String(newPw));
+    for (int i = 0; i < BUFFSIZE; i++) {
+      EEPROM.write(i, newSSID[i]);              // Write SSID to EEPROM
+      EEPROM.write((i + BUFFSIZE), newPw[i]);   // Write Password to EEPROM
+    }
     server.sendContent("HTTP/1.1 301 OK\r\nLocation: /success\r\nCache-Control: no-cache\r\n\r\n");
     return;
   }
@@ -110,25 +147,18 @@ void btnHandler() {
   }
 }
 
-void waitForConnect() {
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
-
-  // Wi-Fi debug info
-  Serial.println("Connected!");
-  Serial.println("------- WiFi DEBUG ------- ");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  WiFi.printDiag(Serial);
-  Serial.println();
+void clearEEPROM() {
+  // write a 0 to all 512 bytes of the EEPROM
+  for (int i = 0; i < 512; i++)
+    EEPROM.write(i, 0);
 }
 
 void setup()
 {
+  // Start communication with EEPROM
+  EEPROM.begin(512);
+  //clearEEPROM();
+  
   // Set pins and baud rate
   Serial.begin(9600);
   delay(10);  // Wait for serial port to connect
@@ -136,6 +166,8 @@ void setup()
   pinMode(STATUS_LIGHT, OUTPUT);
 
   Serial.println("\nStart");
+  getString(0);
+  getString(BUFFSIZE);
   // Initialization and connection to WiFi
   aerServer.init(ssid, password);
   Serial.println("Connected!");
