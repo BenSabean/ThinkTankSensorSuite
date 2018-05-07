@@ -17,8 +17,8 @@
 #define AP_SSID  "ESP Network Setup"
 
 /* Wifi setup */
-char ssid[] =        "";
-char password[] =    "";
+char ssid[BUFFSIZE];
+char password[BUFFSIZE];
 
 char msg[BUFFSIZE];  // Container for serial message
 bool apMode = false; // Flag to dermine current mode of operation
@@ -58,15 +58,20 @@ void waitForConnect() {
 //------------------------------------------------------
 // Get a string from EEPROM
 // @param startAddr the starting address of the string
-//        in EEPROM
-// @return void
+//            in EEPROM
+// @return char* the current string at the address given
+//            by startAddr
 //-------------------------------------------------------
-void getString(int startAddr) {
+char* getString(int startAddr) {
+  char str[BUFFSIZE];
+  memset(str, NULL, BUFFSIZE);
+  
   Serial.println("EEPROM(" + String(startAddr) + "): ");
   for (int i = 0; i < BUFFSIZE; i ++) {
-    Serial.print(char(EEPROM.read(startAddr + i)));
+    str[i] = char(EEPROM.read(startAddr + i));
   }
-  Serial.println();
+  //Serial.println(str);
+  return str;
 }
 
 //------------------------------------------------------
@@ -215,11 +220,15 @@ void setup()
   pinMode(STATUS_LIGHT, OUTPUT);
   Serial.println("\nStart");
 
+  // Empty ssid and password buffers
+  memset(ssid, NULL, BUFFSIZE);
+  memset(password, NULL, BUFFSIZE);
+
   // Start communication with EEPROM
   EEPROM.begin(512);
-  getString(0);
-  getString(BUFFSIZE);
-
+  //delay(500);
+  strcpy(ssid, getString(0));
+  strcpy(password, getString(BUFFSIZE));
   // Initialization and connection to WiFi
   if (aerServer.init(ssid, password)) {
     Serial.println("Connected!");
@@ -227,6 +236,8 @@ void setup()
   }
   else {
     Serial.println("Connection timed out");
+    Serial.print("SSID: ");    Serial.println(ssid);
+    Serial.print("Password: ");    Serial.println(password);
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
 }
