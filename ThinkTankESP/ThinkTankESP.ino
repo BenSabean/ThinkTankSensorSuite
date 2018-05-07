@@ -37,7 +37,7 @@ ESP8266WebServer server(80);
 char* getString(int startAddr) {
   char str[BUFFSIZE];
   memset(str, NULL, BUFFSIZE);
-  
+
   for (int i = 0; i < BUFFSIZE; i ++) {
     str[i] = char(EEPROM.read(startAddr + i));
   }
@@ -70,7 +70,7 @@ void handleSubmit() {
     Serial.print("SSID: ");    Serial.println(ssid);
     Serial.print("Password: ");    Serial.println(password);
   }
-  apMode = false;  
+  apMode = false;
   Serial.readString();          // Empty serial buffer
 }
 
@@ -229,11 +229,11 @@ void loop()
     server.handleClient();
   }
   else {
-    // Empty Serial container
-    memset(msg, NULL, BUFFSIZE);
-
     // Publish Data
     if (Serial.available()) {
+      // Empty Serial container
+      memset(msg, NULL, BUFFSIZE);
+      
       Serial.readString().toCharArray(msg, BUFFSIZE);
       Serial.print("Got: ");    Serial.println(msg);
       if (aerServer.publish("Test", msg)) {
