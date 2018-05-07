@@ -11,6 +11,7 @@
 #define DEVICE_ID 8
 
 #define BUFFSIZE 20
+#define TIMEOUT 60
 #define BUTTON 14
 #define STATUS_LIGHT 13
 #define AP_SSID  "ESP Network Setup"
@@ -26,23 +27,40 @@ bool apMode = false; // Flag to dermine current mode of operation
 AERClient aerServer(DEVICE_ID);
 ESP8266WebServer server(80);
 
+//------------------------------------------------------
+// Wait for successful connection to Wi-Fi Access point.
+// @param none
+// @return void
+//-------------------------------------------------------
 void waitForConnect() {
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
+  int i = 0;
+  while (WiFi.status() != WL_CONNECTED && i <= TIMEOUT) {
+    delay(1000);       // 1 second
     Serial.print(".");
+    i++;
   }
-
-  // Wi-Fi debug info
-  Serial.println("Connected!");
-  Serial.println("------- WiFi DEBUG ------- ");
-  Serial.print("Connected to ");
-  Serial.println(ssid);
-  Serial.print("IP address: ");
-  Serial.println(WiFi.localIP());
-  WiFi.printDiag(Serial);
-  Serial.println();
+  if (i <= TIMEOUT) {
+    // Wi-Fi debug info
+    Serial.println("Connected!");
+    Serial.println("------- WiFi DEBUG ------- ");
+    Serial.print("Connected to ");
+    Serial.println(ssid);
+    Serial.print("IP address: ");
+    Serial.println(WiFi.localIP());
+    WiFi.printDiag(Serial);
+    Serial.println();
+  }
+  else {
+    Serial.println("Connection timed out");
+  }
 }
 
+//------------------------------------------------------
+// Get a string from EEPROM
+// @param startAddr the starting address of the string
+//        in EEPROM
+// @return void
+//-------------------------------------------------------
 void getString(int startAddr) {
   Serial.println("EEPROM(" + String(startAddr) + "): ");
   for (int i = 0; i < BUFFSIZE; i ++) {
@@ -51,6 +69,12 @@ void getString(int startAddr) {
   Serial.println();
 }
 
+//------------------------------------------------------
+// Page to inform the user they successfully changed
+// Wi-Fi credentials
+// @param none
+// @return void
+//-------------------------------------------------------
 void handleSubmit() {
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
@@ -60,9 +84,15 @@ void handleSubmit() {
   getString(BUFFSIZE);   // Password
   waitForConnect();
   apMode = false;
+  aerServer.enableReconnect();  // Allow AERClient to reconnect to Wi-Fi
+  Serial.readString();          // Empty serial buffer
 }
 
-//root page can be accessed only if authentification is ok
+//------------------------------------------------------
+// Page to enter new Wi-Fi credentials
+// @param none
+// @return void
+//-------------------------------------------------------
 void handleRoot() {
   String msg;
   if (server.hasArg("SSID") && server.hasArg("PASSWORD")) {
@@ -91,6 +121,11 @@ void handleRoot() {
   server.send(200, "text/html", content);
 }
 
+//------------------------------------------------------
+// Page displayed on HTTP 404 not found error
+// @param none
+// @return void
+//-------------------------------------------------------
 void handleNotFound() {
   String message = "File Not Found\n\n";
   message += "URI: ";
@@ -106,6 +141,12 @@ void handleNotFound() {
   server.send(404, "text/plain", message);
 }
 
+//------------------------------------------------------
+// Hardware interrupt triggered by button press. Starts
+// soft AP mode
+// @param none
+// @return void
+//-------------------------------------------------------
 void btnHandler() {
   digitalWrite(STATUS_LIGHT, HIGH);
   Serial.println("\nButton pressed!");
@@ -124,7 +165,7 @@ void btnHandler() {
     Serial.println("");
 
     // Wait for connection
-    waitForConnect();
+    // waitForConnect();
 
     server.on("/", handleRoot);
     server.on("/success", handleSubmit);
@@ -143,6 +184,10 @@ void btnHandler() {
     server.begin();
     Serial.println("HTTP server started");
 
+    // Stop AERClient from reconnecting to Wi-Fi so that HTTP server
+    // (in soft AP mode) will be more responsive when Wi-Fi credentials
+    // are incorrect.
+    aerServer.disableReconnect();
     apMode = true;
   }
   else {
@@ -150,6 +195,11 @@ void btnHandler() {
   }
 }
 
+//------------------------------------------------------
+// Clears all of EEPROM
+// @param none
+// @return void
+//-------------------------------------------------------
 void clearEEPROM() {
   // write a 0 to all 512 bytes of the EEPROM
   for (int i = 0; i < 512; i++)
@@ -164,16 +214,20 @@ void setup()
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(STATUS_LIGHT, OUTPUT);
   Serial.println("\nStart");
-  
+
   // Start communication with EEPROM
   EEPROM.begin(512);
   getString(0);
   getString(BUFFSIZE);
-  
+
   // Initialization and connection to WiFi
-  aerServer.init(ssid, password);
-  Serial.println("Connected!");
-  aerServer.debug();
+  if (aerServer.init(ssid, password)) {
+    Serial.println("Connected!");
+    aerServer.debug();
+  }
+  else {
+    Serial.println("Connection timed out");
+  }
   attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
 }
 
