@@ -28,34 +28,6 @@ AERClient aerServer(DEVICE_ID);
 ESP8266WebServer server(80);
 
 //------------------------------------------------------
-// Wait for successful connection to Wi-Fi Access point.
-// @param none
-// @return void
-//-------------------------------------------------------
-void waitForConnect() {
-  int i = 0;
-  while (WiFi.status() != WL_CONNECTED && i <= TIMEOUT) {
-    delay(1000);       // 1 second
-    Serial.print(".");
-    i++;
-  }
-  if (i <= TIMEOUT) {
-    // Wi-Fi debug info
-    Serial.println("Connected!");
-    Serial.println("------- WiFi DEBUG ------- ");
-    Serial.print("Connected to ");
-    Serial.println(ssid);
-    Serial.print("IP address: ");
-    Serial.println(WiFi.localIP());
-    WiFi.printDiag(Serial);
-    Serial.println();
-  }
-  else {
-    Serial.println("Connection timed out");
-  }
-}
-
-//------------------------------------------------------
 // Get a string from EEPROM
 // @param startAddr the starting address of the string
 //            in EEPROM
@@ -66,11 +38,9 @@ char* getString(int startAddr) {
   char str[BUFFSIZE];
   memset(str, NULL, BUFFSIZE);
   
-  Serial.println("EEPROM(" + String(startAddr) + "): ");
   for (int i = 0; i < BUFFSIZE; i ++) {
     str[i] = char(EEPROM.read(startAddr + i));
   }
-  //Serial.println(str);
   return str;
 }
 
@@ -85,11 +55,22 @@ void handleSubmit() {
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   WiFi.mode(WIFI_STA);
-  getString(0);         // Username
-  getString(BUFFSIZE);   // Password
-  waitForConnect();
-  apMode = false;
-  aerServer.enableReconnect();  // Allow AERClient to reconnect to Wi-Fi
+  //getString(0);         // Username
+  //getString(BUFFSIZE);   // Password
+  //waitForConnect();
+  strcpy(ssid, getString(0));            // SSID
+  strcpy(password, getString(BUFFSIZE)); // Password
+  aerServer.enableReconnect();           // Allow AERClient to reconnect to Wi-Fi
+  if (aerServer.init(ssid, password)) {
+    Serial.println("Connected!");
+    aerServer.debug();
+  }
+  else {
+    Serial.println("Connection timed out");
+    Serial.print("SSID: ");    Serial.println(ssid);
+    Serial.print("Password: ");    Serial.println(password);
+  }
+  apMode = false;  
   Serial.readString();          // Empty serial buffer
 }
 
