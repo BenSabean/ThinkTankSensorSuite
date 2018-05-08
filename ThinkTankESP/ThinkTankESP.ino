@@ -3,9 +3,15 @@
    Date: May 1, 2018
 */
 
+// MQTT, HTTP & Soft AP
 #include <AERClient.h>
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
+// Display
+#include <ESP_SSD1306.h>    // Modification of Adafruit_SSD1306 for ESP8266 compatibility
+#include <Adafruit_GFX.h>   // Needs a little change in original Adafruit library (See README.txt file)
+#include <SPI.h>            // For SPI comm (needed for not getting compile error)
+#include <Wire.h>           // For I2C comm
 
 // This device's unique ID
 #define DEVICE_ID 8
@@ -14,7 +20,8 @@
 #define TIMEOUT 60        // Timeout for putting ESP into soft AP mode
 #define BUTTON 14         // Interrupt to trigger soft AP mode
 #define STATUS_LIGHT 13   // Light to indicate that HTTP server is running
-#define AP_SSID  "ESP Network Setup"
+#define OLED_RESET  16    // Pin 15 -RESET digital signal
+#define AP_SSID  "Think Tank"
 
 /* Wifi setup */
 char ssid[BUFFSIZE];
@@ -22,10 +29,13 @@ char password[BUFFSIZE];
 
 char msg[BUFFSIZE];  // Container for serial message
 bool apMode = false; // Flag to dermine current mode of operation
+bool apInfo = false; // Flag to determine if SSID and IP address are displayed for AP mode
 
 /* Create Library Object password */
 AERClient aerServer(DEVICE_ID);
 ESP8266WebServer server(80);
+
+ESP_SSD1306 display(OLED_RESET); // FOR I2C
 
 //------------------------------------------------------
 // Get a string from EEPROM
@@ -44,6 +54,16 @@ char* getString(int startAddr) {
   return str;
 }
 
+void writeToDisplay(char* header, char* msg) {
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setTextColor(WHITE);
+  display.setCursor(0, 0);
+  display.println(header);
+  display.println(msg);
+  display.display();
+}
+
 //------------------------------------------------------
 // Page to inform the user they successfully changed
 // Wi-Fi credentials
@@ -51,23 +71,26 @@ char* getString(int startAddr) {
 // @return void
 //-------------------------------------------------------
 void handleSubmit() {
+  apMode = false;
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   WiFi.mode(WIFI_STA);
   strcpy(ssid, getString(0));            // SSID
   strcpy(password, getString(BUFFSIZE)); // Password
+  writeToDisplay("Connecting", ssid);
   aerServer.enableReconnect();           // Allow AERClient to reconnect to Wi-Fi
   if (aerServer.init(ssid, password)) {
     Serial.println("Connected!");
+    writeToDisplay("Connected!", ssid);
     aerServer.debug();
   }
   else {
     Serial.println("Connection timed out");
+    writeToDisplay("Timed out", ssid);
     Serial.print("SSID: ");    Serial.println(ssid);
     Serial.print("Password: ");    Serial.println(password);
   }
-  apMode = false;
   Serial.readString();          // Empty serial buffer
 }
 
@@ -133,20 +156,19 @@ void btnHandler() {
   Serial.println("\nButton pressed!");
 
   if (!apMode) {
+    apInfo = false;
     // AP SERVER
     Serial.println("Setting soft-AP");
     WiFi.mode(WIFI_AP_STA);
-    
-    for(int i = 0; i < TIMEOUT; i++){
-      if(WiFi.softAP(AP_SSID)) {
-        break; 
+
+    for (int i = 0; i < TIMEOUT; i++) {
+      if (WiFi.softAP(AP_SSID)) {
+        break;
       }
       delay(10);
     }
     Serial.println("Ready");
 
-    // Wait for connection
-    // waitForConnect();
 
     server.on("/", handleRoot);
     server.on("/success", handleSubmit);
@@ -196,6 +218,12 @@ void setup()
   pinMode(STATUS_LIGHT, OUTPUT);
   Serial.println("\nStart");
 
+  // SSD1306 OLED display init
+  display.begin(SSD1306_SWITCHCAPVCC);
+  display.display();
+  delay(2000);
+  display.clearDisplay();  //
+
   // Empty ssid and password buffers
   memset(ssid, NULL, BUFFSIZE);
   memset(password, NULL, BUFFSIZE);
@@ -205,12 +233,15 @@ void setup()
   strcpy(ssid, getString(0));
   strcpy(password, getString(BUFFSIZE));
   // Initialization and connection to WiFi
+  writeToDisplay("Connecting", ssid);
   if (aerServer.init(ssid, password)) {
     Serial.println("Connected!");
+    writeToDisplay("Connected!", ssid);
     aerServer.debug();
   }
   else {
     Serial.println("Connection timed out");
+    writeToDisplay("Timed out", ssid);
     Serial.print("SSID: ");    Serial.println(ssid);
     Serial.print("Password: ");    Serial.println(password);
   }
@@ -220,6 +251,12 @@ void setup()
 void loop()
 {
   if (apMode) {
+    //if (!apInfo) {
+      //writeToDisplay("Soft-AP", AP_SSID);
+      //display.println(WiFi.softAPIP());
+      //display.display();
+      //apInfo = true;
+    //}
     server.handleClient();
   }
   else {
@@ -227,7 +264,7 @@ void loop()
     if (Serial.available()) {
       // Empty Serial container
       memset(msg, NULL, BUFFSIZE);
-      
+
       Serial.readString().toCharArray(msg, BUFFSIZE);
       Serial.print("Got: ");    Serial.println(msg);
       if (aerServer.publish("Test", msg)) {
