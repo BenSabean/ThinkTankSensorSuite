@@ -10,10 +10,10 @@
 // This device's unique ID
 #define DEVICE_ID 8
 
-#define BUFFSIZE 20
-#define TIMEOUT 60
-#define BUTTON 14
-#define STATUS_LIGHT 13
+#define BUFFSIZE 80
+#define TIMEOUT 60        // Timeout for putting ESP into soft AP mode
+#define BUTTON 14         // Interrupt to trigger soft AP mode
+#define STATUS_LIGHT 13   // Light to indicate that HTTP server is running
 #define AP_SSID  "ESP Network Setup"
 
 /* Wifi setup */
@@ -55,9 +55,6 @@ void handleSubmit() {
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   WiFi.mode(WIFI_STA);
-  //getString(0);         // Username
-  //getString(BUFFSIZE);   // Password
-  //waitForConnect();
   strcpy(ssid, getString(0));            // SSID
   strcpy(password, getString(BUFFSIZE)); // Password
   aerServer.enableReconnect();           // Allow AERClient to reconnect to Wi-Fi
@@ -88,8 +85,6 @@ void handleRoot() {
     memset(newPw, NULL, BUFFSIZE);
     server.arg("SSID").toCharArray(newSSID, BUFFSIZE);
     server.arg("PASSWORD").toCharArray(newPw, BUFFSIZE);
-    Serial.println("SSID: " + String(newSSID));
-    Serial.println("Password: " + String(newPw));
 
     for (int i = 0; i < BUFFSIZE; i++) {
       EEPROM.write(i, newSSID[i]);              // Write SSID to EEPROM
@@ -139,16 +134,16 @@ void btnHandler() {
 
   if (!apMode) {
     // AP SERVER
-    Serial.print("Setting soft-AP ... ");
+    Serial.println("Setting soft-AP");
     WiFi.mode(WIFI_AP_STA);
-    if (WiFi.softAP(AP_SSID)) {
-      Serial.println("Ready");
+    
+    for(int i = 0; i < TIMEOUT; i++){
+      if(WiFi.softAP(AP_SSID)) {
+        break; 
+      }
+      delay(10);
     }
-    else {
-      Serial.println("Failed");
-      return;
-    }
-    Serial.println("");
+    Serial.println("Ready");
 
     // Wait for connection
     // waitForConnect();
@@ -207,7 +202,6 @@ void setup()
 
   // Start communication with EEPROM
   EEPROM.begin(512);
-  //delay(500);
   strcpy(ssid, getString(0));
   strcpy(password, getString(BUFFSIZE));
   // Initialization and connection to WiFi
