@@ -26,10 +26,9 @@
 /* Wifi setup */
 char ssid[BUFFSIZE];
 char password[BUFFSIZE];
-
+char ip[BUFFSIZE] = "192.168.4.1";
 char msg[BUFFSIZE];  // Container for serial message
 bool apMode = false; // Flag to dermine current mode of operation
-bool apInfo = false; // Flag to determine if SSID and IP address are displayed for AP mode
 
 /* Create Library Object password */
 AERClient aerServer(DEVICE_ID);
@@ -75,6 +74,8 @@ void handleSubmit() {
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
+  //delay(500);
+  ESP.restart();
   WiFi.mode(WIFI_STA);
   strcpy(ssid, getString(0));            // SSID
   strcpy(password, getString(BUFFSIZE)); // Password
@@ -156,7 +157,9 @@ void btnHandler() {
   Serial.println("\nButton pressed!");
 
   if (!apMode) {
-    apInfo = false;
+    WiFi.disconnect(true);
+    //delay(500);
+
     // AP SERVER
     Serial.println("Setting soft-AP");
     WiFi.mode(WIFI_AP_STA);
@@ -251,12 +254,13 @@ void setup()
 void loop()
 {
   if (apMode) {
-    //if (!apInfo) {
-      //writeToDisplay("Soft-AP", AP_SSID);
-      //display.println(WiFi.softAPIP());
-      //display.display();
-      //apInfo = true;
-    //}
+    char buf[BUFFSIZE];
+    String tmp = "";
+    memset(buf, NULL, BUFFSIZE);
+    tmp = String(AP_SSID) + "\n" + String(ip);
+    tmp.toCharArray(buf, BUFFSIZE);
+    writeToDisplay("Soft-AP", buf);
+
     server.handleClient();
   }
   else {
