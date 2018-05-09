@@ -281,7 +281,7 @@ void loop()
       pch = strtok (msg, DELIM);
       Serial.println(pch);
       strcpy(sAddr, pch);
-      pch = strtok (NULL, DELIM);
+      pch = strtok (NULL, "\n");
       Serial.println(pch);
       strcpy(sVal, pch);
 
