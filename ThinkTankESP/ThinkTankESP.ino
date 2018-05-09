@@ -16,12 +16,16 @@
 // This device's unique ID
 #define DEVICE_ID 8
 
+// Constants definition
 #define BUFFSIZE 80
 #define TIMEOUT 60        // Timeout for putting ESP into soft AP mode
+#define AP_SSID  "Think Tank"
+#define DELIM ":"
+
+// Pin defines
 #define BUTTON 14         // Interrupt to trigger soft AP mode
 #define STATUS_LIGHT 13   // Light to indicate that HTTP server is running
 #define OLED_RESET  16    // Pin 15 -RESET digital signal
-#define AP_SSID  "Think Tank"
 
 /* Wifi setup */
 char ssid[BUFFSIZE];
@@ -266,16 +270,44 @@ void loop()
   else {
     // Publish Data
     if (Serial.available()) {
+      char* pch;          // character pointer for strtok
+      char sAddr[BUFFSIZE], sVal[BUFFSIZE];
+
       // Empty Serial container
       memset(msg, NULL, BUFFSIZE);
 
       Serial.readString().toCharArray(msg, BUFFSIZE);
       Serial.print("Got: ");    Serial.println(msg);
-      if (aerServer.publish("Test", msg)) {
-        Serial.println("Msg Sent!");
+      pch = strtok (msg, DELIM);
+      Serial.println(pch);
+      strcpy(sAddr, pch);
+      pch = strtok (NULL, DELIM);
+      Serial.println(pch);
+      strcpy(sVal, pch);
+
+      if (sAddr[0] == '[') {         // Data
+        char topic[BUFFSIZE];
+        memset(topic, NULL, BUFFSIZE);
+        strcat(topic, "DATA/");
+        strcat(topic, sAddr);
+        if (aerServer.publish(topic, sVal)) {
+          Serial.println("Msg Sent!");
+        }
+        else {
+          Serial.println("Msg Failed!");
+        }
       }
-      else {
-        Serial.println("Msg Failed!");
+      else {                         // Runtime Info
+        char topic[BUFFSIZE];
+        memset(topic, NULL, BUFFSIZE);
+        strcat(topic, "System/");
+        strcat(topic, sAddr);
+        if (aerServer.publish(topic, sVal)) {
+          Serial.println("Msg Sent!");
+        }
+        else {
+          Serial.println("Msg Failed!");
+        }
       }
     }
   }
