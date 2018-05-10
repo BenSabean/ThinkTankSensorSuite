@@ -253,6 +253,7 @@ void setup()
     Serial.print("Password: ");    Serial.println(password);
   }
   attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
+  Serial.readString();   // Empty Serial buffer
 }
 
 void loop()
@@ -277,36 +278,50 @@ void loop()
       memset(msg, NULL, BUFFSIZE);
 
       Serial.readString().toCharArray(msg, BUFFSIZE);
-      Serial.print("Got: ");    Serial.println(msg);
       pch = strtok (msg, DELIM);
-      Serial.println(pch);
-      strcpy(sAddr, pch);
-      pch = strtok (NULL, "\n");
-      Serial.println(pch);
-      strcpy(sVal, pch);
+      while (pch != NULL) {
+        Serial.print("header: "); Serial.println(pch);
+        strcpy(sAddr, pch);
+        pch = strtok (NULL, "\n");
+        Serial.print("Data: "); Serial.println(pch);
+        if(pch == NULL){
+          strcpy(sVal, "-200.0");
+        }
+        else {
+          strcpy(sVal, pch);
+        }
 
-      if (sAddr[0] == '[') {         // Data
-        char topic[BUFFSIZE];
-        memset(topic, NULL, BUFFSIZE);
-        strcat(topic, "DATA/");
-        strcat(topic, sAddr);
-        if (aerServer.publish(topic, sVal)) {
-          Serial.println("Msg Sent!");
+        if (sAddr[0] == '[') {         // Data
+          char topic[BUFFSIZE];
+          memset(topic, NULL, BUFFSIZE);
+          strcat(topic, "DATA/");
+          strcat(topic, sAddr);
+          Serial.println(topic);
+          Serial.println(sVal);
+          if (aerServer.publish(topic, sVal)) {
+            Serial.println("Msg Sent!");
+          }
+          else {
+            Serial.println("Msg Failed!");
+          }
         }
-        else {
-          Serial.println("Msg Failed!");
+        else {                         // Runtime Info
+          char topic[BUFFSIZE];
+          memset(topic, NULL, BUFFSIZE);
+          strcat(topic, "System/");
+          strcat(topic, sAddr);
+          //Serial.println(topic);
+          //Serial.println(sVal);
+          if (aerServer.publish(topic, sVal)) {
+            Serial.println("Msg Sent!");
+          }
+          else {
+            Serial.println("Msg Failed!");
+          }
         }
-      }
-      else {                         // Runtime Info
-        char topic[BUFFSIZE];
-        memset(topic, NULL, BUFFSIZE);
-        strcat(topic, "System/");
-        strcat(topic, sAddr);
-        if (aerServer.publish(topic, sVal)) {
-          Serial.println("Msg Sent!");
-        }
-        else {
-          Serial.println("Msg Failed!");
+        if (pch != NULL) {  // Continue if more data is present
+          pch = strtok (NULL, DELIM);
+          Serial.print("Next: "); Serial.println(pch);
         }
       }
     }

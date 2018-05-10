@@ -10,6 +10,7 @@
 #define DEBUG true
 #define SAMPLE_RATE 5000
 #define ADDR_LENGTH 8
+#define DELIM ":"
 
 //-----------------Dallas_Library-----------------//
 #define ONE_WIRE_GPIO 2               // Starting data pin of the bus
@@ -79,7 +80,7 @@ void ReadSensors(oneWire_struct TempSensor[]) {
 }
 
 void PrintValues(oneWire_struct TempSensor[]) {
-  //Serial.println("DeviceCount:" + String(oneWire_count));
+  Serial.print("DeviceCount" + String(DELIM) + String(oneWire_count) + "\n");
   //delay(500);
   // Display current sensor readings and addresses
   for (uint8_t i = 0; i < oneWire_count; i++) {
@@ -89,8 +90,8 @@ void PrintValues(oneWire_struct TempSensor[]) {
       Serial.print(", ");
       Serial.print(int(TempSensor[i].address[x]), HEX);
     }
-    Serial.print("]:");
-    Serial.println(String(TempSensor[i].value));
+    Serial.print("]" + String(DELIM));
+    Serial.print(String(TempSensor[i].value) + "\n");
   }
 }
 
