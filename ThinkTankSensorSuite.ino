@@ -81,7 +81,7 @@ void ReadSensors(oneWire_struct TempSensor[]) {
 
 void PrintValues(oneWire_struct TempSensor[]) {
   Serial.print("DeviceCount" + String(DELIM) + String(oneWire_count) + "\n");
-  //delay(500);
+  delay(500);
   // Display current sensor readings and addresses
   for (uint8_t i = 0; i < oneWire_count; i++) {
     Serial.print("[");
@@ -92,6 +92,7 @@ void PrintValues(oneWire_struct TempSensor[]) {
     }
     Serial.print("]" + String(DELIM));
     Serial.print(String(TempSensor[i].value) + "\n");
+    delay(500);
   }
 }
 

@@ -31,7 +31,7 @@
 char ssid[BUFFSIZE];
 char password[BUFFSIZE];
 char ip[BUFFSIZE] = "192.168.4.1";
-char msg[BUFFSIZE];  // Container for serial message
+//char msg[BUFFSIZE];  // Container for serial message
 bool apMode = false; // Flag to dermine current mode of operation
 
 /* Create Library Object password */
@@ -270,58 +270,64 @@ void loop()
   }
   else {
     // Publish Data
-    if (Serial.available()) {
-      char* pch;          // character pointer for strtok
-      char sAddr[BUFFSIZE], sVal[BUFFSIZE];
+    char ch;          // character pointer for strtok
+    char sAddr[BUFFSIZE], sVal[BUFFSIZE];
+    char msg[BUFFSIZE] = "";
 
-      // Empty Serial container
+    while (Serial.available()) {
+      for (int i = 0; i < BUFFSIZE; i ++) {
+        ch = Serial.read();
+        if (String(ch) == String(DELIM)) {
+          break;
+        }
+        msg[i] = ch;         // Get Address
+        Serial.print(ch);
+        delay(10);           // Wait for Serial buffer
+      }
+      Serial.println();
+      strcpy(sAddr, msg);
+      Serial.print("Header: "); Serial.println(sAddr);
+
       memset(msg, NULL, BUFFSIZE);
-
-      Serial.readString().toCharArray(msg, BUFFSIZE);
-      pch = strtok (msg, DELIM);
-      while (pch != NULL) {
-        Serial.print("header: "); Serial.println(pch);
-        strcpy(sAddr, pch);
-        pch = strtok (NULL, "\n");
-        Serial.print("Data: "); Serial.println(pch);
-        if(pch == NULL){
-          strcpy(sVal, "-200.0");
+      for (int i = 0; i < BUFFSIZE; i ++) {
+        ch = Serial.read();
+        if (String(ch) == String("\n")) {
+          break;
+        }
+        msg[i] = ch;         // Get Data
+        Serial.print(ch);
+        delay(10);           // Wait for Serial buffer
+      }
+      Serial.println();
+      strcpy(sVal, msg);
+      Serial.print("Data: "); Serial.println(sVal);
+      
+      if (sAddr[0] == '[') {         // Data
+        char topic[BUFFSIZE];
+        memset(topic, NULL, BUFFSIZE);
+        strcat(topic, "DATA/");
+        strcat(topic, sAddr);
+        Serial.println(topic);
+        Serial.println(sVal);
+        if (aerServer.publish(topic, sVal)) {
+          Serial.println("Msg Sent!");
         }
         else {
-          strcpy(sVal, pch);
+          Serial.println("Msg Failed!");
         }
-
-        if (sAddr[0] == '[') {         // Data
-          char topic[BUFFSIZE];
-          memset(topic, NULL, BUFFSIZE);
-          strcat(topic, "DATA/");
-          strcat(topic, sAddr);
-          Serial.println(topic);
-          Serial.println(sVal);
-          if (aerServer.publish(topic, sVal)) {
-            Serial.println("Msg Sent!");
-          }
-          else {
-            Serial.println("Msg Failed!");
-          }
+      }
+      else {                         // Runtime Info
+        char topic[BUFFSIZE];
+        memset(topic, NULL, BUFFSIZE);
+        strcat(topic, "System/");
+        strcat(topic, sAddr);
+        //Serial.println(topic);
+        //Serial.println(sVal);
+        if (aerServer.publish(topic, sVal)) {
+          Serial.println("Msg Sent!");
         }
-        else {                         // Runtime Info
-          char topic[BUFFSIZE];
-          memset(topic, NULL, BUFFSIZE);
-          strcat(topic, "System/");
-          strcat(topic, sAddr);
-          //Serial.println(topic);
-          //Serial.println(sVal);
-          if (aerServer.publish(topic, sVal)) {
-            Serial.println("Msg Sent!");
-          }
-          else {
-            Serial.println("Msg Failed!");
-          }
-        }
-        if (pch != NULL) {  // Continue if more data is present
-          pch = strtok (NULL, DELIM);
-          Serial.print("Next: "); Serial.println(pch);
+        else {
+          Serial.println("Msg Failed!");
         }
       }
     }
