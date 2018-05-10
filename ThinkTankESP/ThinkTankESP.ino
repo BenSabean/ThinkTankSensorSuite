@@ -74,29 +74,13 @@ void writeToDisplay(char* header, char* msg) {
 // @return void
 //-------------------------------------------------------
 void handleSubmit() {
-  apMode = false;
   String content = "<html><body><H2>WiFi information updated!</H2><br>";
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   //delay(500);
+  Serial.println("Restarting");
   ESP.restart();
-  WiFi.mode(WIFI_STA);
-  strcpy(ssid, getString(0));            // SSID
-  strcpy(password, getString(BUFFSIZE)); // Password
-  writeToDisplay("Connecting", ssid);
-  aerServer.enableReconnect();           // Allow AERClient to reconnect to Wi-Fi
-  if (aerServer.init(ssid, password)) {
-    Serial.println("Connected!");
-    writeToDisplay("Connected!", ssid);
-    aerServer.debug();
-  }
-  else {
-    Serial.println("Connection timed out");
-    writeToDisplay("Timed out", ssid);
-    Serial.print("SSID: ");    Serial.println(ssid);
-    Serial.print("Password: ");    Serial.println(password);
-  }
-  Serial.readString();          // Empty serial buffer
+  Serial.println(":(");
 }
 
 //------------------------------------------------------
@@ -281,12 +265,12 @@ void loop()
           break;
         }
         msg[i] = ch;         // Get Address
-        Serial.print(ch);
+        //Serial.print(ch);
         delay(10);           // Wait for Serial buffer
       }
-      Serial.println();
+      //Serial.println();
       strcpy(sAddr, msg);
-      Serial.print("Header: "); Serial.println(sAddr);
+      //Serial.print("Header: "); Serial.println(sAddr);
 
       memset(msg, NULL, BUFFSIZE);
       for (int i = 0; i < BUFFSIZE; i ++) {
@@ -295,12 +279,12 @@ void loop()
           break;
         }
         msg[i] = ch;         // Get Data
-        Serial.print(ch);
+        //Serial.print(ch);
         delay(10);           // Wait for Serial buffer
       }
       Serial.println();
       strcpy(sVal, msg);
-      Serial.print("Data: "); Serial.println(sVal);
+      //Serial.print("Data: "); Serial.println(sVal);
       
       if (sAddr[0] == '[') {         // Data
         char topic[BUFFSIZE];
@@ -321,8 +305,8 @@ void loop()
         memset(topic, NULL, BUFFSIZE);
         strcat(topic, "System/");
         strcat(topic, sAddr);
-        //Serial.println(topic);
-        //Serial.println(sVal);
+        Serial.println(topic);
+        Serial.println(sVal);
         if (aerServer.publish(topic, sVal)) {
           Serial.println("Msg Sent!");
         }
