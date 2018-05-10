@@ -14,7 +14,7 @@
 
 //-----------------Dallas_Library-----------------//
 #define ONE_WIRE_GPIO 2               // Starting data pin of the bus
-#define ONE_WIRE_LENGTH 4             // The number of pins used by the bus
+#define ONE_WIRE_LENGTH 8             // The number of pins used by the bus
 #define CALLIBRATION 2                // Used to callibrate the sensors (in C)
 volatile uint8_t oneWire_count = 0;
 // Setting up the interface for OneWire communication
@@ -24,7 +24,11 @@ OneWire oneWire[]  = {
   OneWire(ONE_WIRE_GPIO),
   OneWire(ONE_WIRE_GPIO + 1),
   OneWire(ONE_WIRE_GPIO + 2),
-  OneWire(ONE_WIRE_GPIO + 3)
+  OneWire(ONE_WIRE_GPIO + 3), 
+  OneWire(ONE_WIRE_GPIO + 4),
+  OneWire(ONE_WIRE_GPIO + 5),
+  OneWire(ONE_WIRE_GPIO + 6),
+  OneWire(ONE_WIRE_GPIO + 7),
 };
 
 // Creating an instans of DallasTemperature Class with reference to OneWire interface
@@ -32,7 +36,11 @@ DallasTemperature Dallas_Library[] = {
   DallasTemperature(&oneWire[0]),
   DallasTemperature(&oneWire[1]),
   DallasTemperature(&oneWire[2]),
-  DallasTemperature(&oneWire[3])
+  DallasTemperature(&oneWire[3]),
+  DallasTemperature(&oneWire[4]),
+  DallasTemperature(&oneWire[5]),
+  DallasTemperature(&oneWire[6]),
+  DallasTemperature(&oneWire[7])
 };
 // Sensor structure with address and value
 struct oneWire_struct {
