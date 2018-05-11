@@ -31,7 +31,12 @@
 char ssid[BUFFSIZE];
 char password[BUFFSIZE];
 char ip[BUFFSIZE] = "192.168.4.1";
-//char msg[BUFFSIZE];  // Container for serial message
+char msg[BUFFSIZE] = "";  // Container for serial message
+char topic[BUFFSIZE];
+char ch;          // character pointer for strtok
+char sAddr[BUFFSIZE], sVal[BUFFSIZE];
+char buf[BUFFSIZE];
+String tmp = "";
 bool apMode = false; // Flag to dermine current mode of operation
 
 /* Create Library Object password */
@@ -89,7 +94,7 @@ void handleSubmit() {
 // @return void
 //-------------------------------------------------------
 void handleRoot() {
-  String msg;
+  String htmlmsg;
   if (server.hasArg("SSID") && server.hasArg("PASSWORD")) {
     char newSSID[BUFFSIZE];
     char newPw[BUFFSIZE];
@@ -110,7 +115,7 @@ void handleRoot() {
   String content = "<html><body><form action='/' method='POST'>Please enter new SSID and password.<br>";
   content += "SSID:<input type='text' name='SSID' placeholder='SSID'><br>";
   content += "Password:<input type='password' name='PASSWORD' placeholder='password'><br>";
-  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + msg + "<br>";
+  content += "<input type='submit' name='SUBMIT' value='Submit'></form>" + htmlmsg + "<br>";
   server.send(200, "text/html", content);
 }
 
@@ -235,8 +240,8 @@ void setup()
     writeToDisplay("Timed out", ssid);
     Serial.print("SSID: ");    Serial.println(ssid);
     Serial.print("Password: ");    Serial.println(password);
+    attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
   }
-  attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
   Serial.readString();   // Empty Serial buffer
 }
 
@@ -253,24 +258,20 @@ void loop()
     server.handleClient();
   }
   else {
+    //strcpy(password, "");
     // Publish Data
-    char ch;          // character pointer for strtok
-    char sAddr[BUFFSIZE], sVal[BUFFSIZE];
-    char msg[BUFFSIZE] = "";
-
     while (Serial.available()) {
+      delay(10);
+      memset(msg, NULL, BUFFSIZE);
       for (int i = 0; i < BUFFSIZE; i ++) {
         ch = Serial.read();
         if (String(ch) == String(DELIM)) {
           break;
         }
         msg[i] = ch;         // Get Address
-        //Serial.print(ch);
         delay(10);           // Wait for Serial buffer
       }
-      //Serial.println();
       strcpy(sAddr, msg);
-      //Serial.print("Header: "); Serial.println(sAddr);
 
       memset(msg, NULL, BUFFSIZE);
       for (int i = 0; i < BUFFSIZE; i ++) {
@@ -279,43 +280,68 @@ void loop()
           break;
         }
         msg[i] = ch;         // Get Data
-        //Serial.print(ch);
         delay(10);           // Wait for Serial buffer
       }
       Serial.println();
       strcpy(sVal, msg);
-      //Serial.print("Data: "); Serial.println(sVal);
-      
+
+      memset(buf, NULL, BUFFSIZE);
+      tmp = String(ssid) + "\n" + "Sending";
+      tmp.toCharArray(buf, BUFFSIZE);
+      writeToDisplay("Status", buf);
       if (sAddr[0] == '[') {         // Data
-        char topic[BUFFSIZE];
         memset(topic, NULL, BUFFSIZE);
         strcat(topic, "DATA/");
         strcat(topic, sAddr);
         Serial.println(topic);
         Serial.println(sVal);
         if (aerServer.publish(topic, sVal)) {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Sent";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
           Serial.println("Msg Sent!");
         }
         else {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Failed";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
           Serial.println("Msg Failed!");
         }
       }
       else {                         // Runtime Info
-        char topic[BUFFSIZE];
         memset(topic, NULL, BUFFSIZE);
         strcat(topic, "System/");
         strcat(topic, sAddr);
         Serial.println(topic);
         Serial.println(sVal);
         if (aerServer.publish(topic, sVal)) {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Sent";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
           Serial.println("Msg Sent!");
         }
         else {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Failed";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
           Serial.println("Msg Failed!");
         }
       }
+      if (!digitalRead(BUTTON)) {
+        Serial.readString();
+        btnHandler();
+      }
     }
   }
+  if (!digitalRead(BUTTON)) {
+    Serial.readString();
+    btnHandler();
+  }
+  delay(100);
 }
 
 
