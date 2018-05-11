@@ -15,6 +15,7 @@
 #include <Wire.h>           // For I2C comm
 
 #define DEVICE_ID 8         // This device's unique ID as seen in the database
+#define DEBUG false         // Flag to determine if debug info is displayed 
 
 // Constants definition
 #define BUFFSIZE 80            // Size for all character buffers
@@ -63,6 +64,13 @@ char* getString(int startAddr) {
   return str;
 }
 
+//------------------------------------------------------
+// Write to the SSD1306 OLED display
+// @param header A string to be printed in the header
+//               section of the display
+// @param msg A string to displayed beneath th header
+// @return void
+//-------------------------------------------------------
 void writeToDisplay(char* header, char* msg) {
   display.clearDisplay();
   display.setTextSize(2);
@@ -84,9 +92,10 @@ void handleSubmit() {
   server.send(200, "text/html", content);
   digitalWrite(STATUS_LIGHT, LOW);
   //delay(500);
+#if DEBUG
   Serial.println("Restarting");
+#endif
   ESP.restart();
-  Serial.println(":(");
 }
 
 //------------------------------------------------------
@@ -148,14 +157,15 @@ void handleNotFound() {
 //-------------------------------------------------------
 void btnHandler() {
   digitalWrite(STATUS_LIGHT, HIGH);
-  Serial.println("\nButton pressed!");
 
   if (!apMode) {
     WiFi.disconnect(true);
     //delay(500);
 
     // AP SERVER
+#if DEBUG
     Serial.println("Setting soft-AP");
+#endif
     WiFi.mode(WIFI_AP_STA);
 
     for (int i = 0; i < TIMEOUT; i++) {
@@ -164,8 +174,9 @@ void btnHandler() {
       }
       delay(10);
     }
+#if DEBUG
     Serial.println("Ready");
-
+#endif
 
     server.on("/", handleRoot);
     server.on("/success", handleSubmit);
@@ -182,7 +193,9 @@ void btnHandler() {
     //ask server to track these headers
     server.collectHeaders(headerkeys, headerkeyssize );
     server.begin();
+#if DEBUG
     Serial.println("HTTP server started");
+#endif
 
     // Stop AERClient from reconnecting to Wi-Fi so that HTTP server
     // (in soft AP mode) will be more responsive when Wi-Fi credentials
@@ -191,7 +204,9 @@ void btnHandler() {
     apMode = true;
   }
   else {
+#if DEBUG
     Serial.println("Already in soft AP mode!");
+#endif
   }
 }
 
@@ -213,7 +228,9 @@ void setup()
   delay(10);  // Wait for serial port to connect
   pinMode(BUTTON, INPUT_PULLUP);
   pinMode(STATUS_LIGHT, OUTPUT);
+#if DEBUG
   Serial.println("\nStart");
+#endif
 
   // SSD1306 OLED display init
   display.begin(SSD1306_SWITCHCAPVCC);
@@ -232,15 +249,19 @@ void setup()
   // Initialization and connection to WiFi
   writeToDisplay("Connecting", ssid);
   if (aerServer.init(ssid, password)) {
-    Serial.println("Connected!");
     writeToDisplay("Connected!", ssid);
+#if DEBUG
+    Serial.println("Connected!");
     aerServer.debug();
+#endif
   }
   else {
+#if DEBUG
     Serial.println("Connection timed out");
-    writeToDisplay("Timed out", ssid);
     Serial.print("SSID: ");    Serial.println(ssid);
     Serial.print("Password: ");    Serial.println(password);
+#endif
+    writeToDisplay("Timed out", ssid);
     attachInterrupt(digitalPinToInterrupt(BUTTON), btnHandler, FALLING);
   }
   Serial.readString();   // Empty Serial buffer
@@ -264,21 +285,23 @@ void loop()
       corrupt = false;
       delay(10);
       memset(msg, NULL, BUFFSIZE);
+
       for (int i = 0; i < BUFFSIZE; i ++) {
         ch = Serial.read();
-        // Check for delimeter or corrupted serial. Has a side effect of losing a char in buffer
-        if (String(ch) == String(DELIM)) {
+        if (String(ch) == String(DELIM)) {  // Check for delimeter
           break;
         }
         msg[i] = ch;         // Get Address
         delay(10);           // Wait for Serial buffer
-        if (Serial.peek() == -1) {
+        if (Serial.peek() == -1) {   // Check for missing data
           memset(buf, NULL, BUFFSIZE);
-          tmp = String(ssid) + "\n" + "Corrupt";
+          tmp = String(ssid) + "\n" + "Corrupt Data";
           tmp.toCharArray(buf, BUFFSIZE);
           writeToDisplay("Status", buf);
           corrupt = true;
+#if DEBUG
           Serial.println("Data Missing");
+#endif
           break;
         }
       }
@@ -292,18 +315,18 @@ void loop()
         }
         msg[i] = ch;         // Get Data
         delay(10);           // Wait for Serial buffer
-        //Serial.print(Serial.peek());
         if (Serial.peek() == -1) {
           memset(buf, NULL, BUFFSIZE);
           tmp = String(ssid) + "\n" + "Corrupt";
           tmp.toCharArray(buf, BUFFSIZE);
           writeToDisplay("Status", buf);
           corrupt = true;
+#if DEBUG
           Serial.println("Data Missing");
+#endif
           break;
         }
       }
-      Serial.println();
       strcpy(sVal, msg);
       if (!corrupt) {
         memset(buf, NULL, BUFFSIZE);
@@ -314,42 +337,54 @@ void loop()
           memset(topic, NULL, BUFFSIZE);
           strcat(topic, "DATA/");
           strcat(topic, sAddr);
+#if DEBUG
           Serial.println(topic);
           Serial.println(sVal);
+#endif
           if (aerServer.publish(topic, sVal)) {
             memset(buf, NULL, BUFFSIZE);
             tmp = String(ssid) + "\n" + "Sent";
             tmp.toCharArray(buf, BUFFSIZE);
             writeToDisplay("Status", buf);
+#if DEBUG
             Serial.println("Msg Sent!");
+#endif
           }
           else {
             memset(buf, NULL, BUFFSIZE);
             tmp = String(ssid) + "\n" + "Failed";
             tmp.toCharArray(buf, BUFFSIZE);
             writeToDisplay("Status", buf);
+#if DEBUG
             Serial.println("Msg Failed!");
+#endif
           }
         }
         else {                         // Runtime Info
           memset(topic, NULL, BUFFSIZE);
           strcat(topic, "System/");
           strcat(topic, sAddr);
+#if DEBUG
           Serial.println(topic);
           Serial.println(sVal);
+#endif
           if (aerServer.publish(topic, sVal)) {
             memset(buf, NULL, BUFFSIZE);
             tmp = String(ssid) + "\n" + "Sent";
             tmp.toCharArray(buf, BUFFSIZE);
             writeToDisplay("Status", buf);
+#if DEBUG
             Serial.println("Msg Sent!");
+#endif
           }
           else {
             memset(buf, NULL, BUFFSIZE);
             tmp = String(ssid) + "\n" + "Failed";
             tmp.toCharArray(buf, BUFFSIZE);
             writeToDisplay("Status", buf);
+#if DEBUG
             Serial.println("Msg Failed!");
+#endif
           }
         }
         if (!digitalRead(BUTTON)) {
@@ -365,8 +400,4 @@ void loop()
   }
   delay(100);
 }
-
-
-
-
 
