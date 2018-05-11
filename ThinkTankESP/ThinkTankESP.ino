@@ -15,13 +15,14 @@
 #include <Wire.h>           // For I2C comm
 
 #define DEVICE_ID 8         // This device's unique ID as seen in the database
-#define DEBUG false         // Flag to determine if debug info is displayed 
+#define DEBUG true         // Flag to determine if debug info is displayed 
 
 // Constants definition
-#define BUFFSIZE 80            // Size for all character buffers
-#define TIMEOUT 60             // Timeout for putting ESP into soft AP mode
-#define AP_SSID  "Think Tank"  // Name of soft-AP network
-#define DELIM ":"              // Delimeter for serial communication
+#define BUFFSIZE 80                    // Size for all character buffers
+#define TIMEOUT 60                    // Timeout for putting ESP into soft AP mode
+#define AP_SSID  "Think Tank"         // Name of soft-AP network
+#define DELIM ":"                     // Delimeter for serial communication
+#define SUBSCRIPTION "8/CONTROL/TIME"  // MQTT topic to change sample time
 
 // Pin defines
 #define BUTTON 14         // Interrupt to trigger soft AP mode
@@ -62,6 +63,13 @@ char* getString(int startAddr) {
     str[i] = char(EEPROM.read(startAddr + i));
   }
   return str;
+}
+
+void callback(char* topic, byte* payload, unsigned int length) {
+  for (int i = 0; i < length; i++) {
+    Serial.print((char)payload[i]);
+  }
+  Serial.println();
 }
 
 //------------------------------------------------------
@@ -223,6 +231,8 @@ void clearEEPROM() {
 
 void setup()
 {
+  void (*pCallback)(char*, byte*, unsigned int);
+  pCallback = &callback;
   // Set pins and baud rate
   Serial.begin(9600);
   delay(10);  // Wait for serial port to connect
@@ -250,6 +260,7 @@ void setup()
   writeToDisplay("Connecting", ssid);
   if (aerServer.init(ssid, password)) {
     writeToDisplay("Connected!", ssid);
+    aerServer.subscribe(SUBSCRIPTION, pCallback);
 #if DEBUG
     Serial.println("Connected!");
     aerServer.debug();
@@ -398,6 +409,7 @@ void loop()
     Serial.readString();
     btnHandler();
   }
+  aerServer.loop();
   delay(100);
 }
 
