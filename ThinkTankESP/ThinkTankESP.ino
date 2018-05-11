@@ -7,20 +7,20 @@
 #include <AERClient.h>
 #include <ESP8266WebServer.h>
 #include <EEPROM.h>
+
 // Display
 #include <ESP_SSD1306.h>    // Modification of Adafruit_SSD1306 for ESP8266 compatibility
 #include <Adafruit_GFX.h>   // Needs a little change in original Adafruit library (See README.txt file)
 #include <SPI.h>            // For SPI comm (needed for not getting compile error)
 #include <Wire.h>           // For I2C comm
 
-// This device's unique ID
-#define DEVICE_ID 8
+#define DEVICE_ID 8         // This device's unique ID as seen in the database
 
 // Constants definition
-#define BUFFSIZE 80
-#define TIMEOUT 60        // Timeout for putting ESP into soft AP mode
-#define AP_SSID  "Think Tank"
-#define DELIM ":"
+#define BUFFSIZE 80            // Size for all character buffers
+#define TIMEOUT 60             // Timeout for putting ESP into soft AP mode
+#define AP_SSID  "Think Tank"  // Name of soft-AP network
+#define DELIM ":"              // Delimeter for serial communication
 
 // Pin defines
 #define BUTTON 14         // Interrupt to trigger soft AP mode
@@ -28,16 +28,17 @@
 #define OLED_RESET  16    // Pin 15 -RESET digital signal
 
 /* Wifi setup */
-char ssid[BUFFSIZE];
-char password[BUFFSIZE];
-char ip[BUFFSIZE] = "192.168.4.1";
+char ssid[BUFFSIZE];       // Wi-Fi SSID
+char password[BUFFSIZE];   // Wi-Fi password
+char ip[BUFFSIZE] = "192.168.4.1";  // Default soft-AP ip address
 char msg[BUFFSIZE] = "";  // Container for serial message
-char topic[BUFFSIZE];
-char ch;          // character pointer for strtok
-char sAddr[BUFFSIZE], sVal[BUFFSIZE];
-char buf[BUFFSIZE];
-String tmp = "";
-bool apMode = false; // Flag to dermine current mode of operation
+char topic[BUFFSIZE];     // The full MQTT topic
+char ch;                  // Current character in serial buffer
+char sAddr[BUFFSIZE], sVal[BUFFSIZE];   // Topic & data buffers for MQTT
+char buf[BUFFSIZE];    // Temporary buffer for building messages on display
+String tmp = "";       // Temproary buffer to build full topic name
+bool apMode = false;   // Flag to dermine current mode of operation
+bool corrupt = false;  // Flag to determine if serial buffer is corrupt
 
 /* Create Library Object password */
 AERClient aerServer(DEVICE_ID);
@@ -258,18 +259,28 @@ void loop()
     server.handleClient();
   }
   else {
-    //strcpy(password, "");
     // Publish Data
     while (Serial.available()) {
+      corrupt = false;
       delay(10);
       memset(msg, NULL, BUFFSIZE);
       for (int i = 0; i < BUFFSIZE; i ++) {
         ch = Serial.read();
+        // Check for delimeter or corrupted serial. Has a side effect of losing a char in buffer
         if (String(ch) == String(DELIM)) {
           break;
         }
         msg[i] = ch;         // Get Address
         delay(10);           // Wait for Serial buffer
+        if (Serial.peek() == -1) {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Corrupt";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
+          corrupt = true;
+          Serial.println("Data Missing");
+          break;
+        }
       }
       strcpy(sAddr, msg);
 
@@ -281,59 +292,70 @@ void loop()
         }
         msg[i] = ch;         // Get Data
         delay(10);           // Wait for Serial buffer
+        //Serial.print(Serial.peek());
+        if (Serial.peek() == -1) {
+          memset(buf, NULL, BUFFSIZE);
+          tmp = String(ssid) + "\n" + "Corrupt";
+          tmp.toCharArray(buf, BUFFSIZE);
+          writeToDisplay("Status", buf);
+          corrupt = true;
+          Serial.println("Data Missing");
+          break;
+        }
       }
       Serial.println();
       strcpy(sVal, msg);
-
-      memset(buf, NULL, BUFFSIZE);
-      tmp = String(ssid) + "\n" + "Sending";
-      tmp.toCharArray(buf, BUFFSIZE);
-      writeToDisplay("Status", buf);
-      if (sAddr[0] == '[') {         // Data
-        memset(topic, NULL, BUFFSIZE);
-        strcat(topic, "DATA/");
-        strcat(topic, sAddr);
-        Serial.println(topic);
-        Serial.println(sVal);
-        if (aerServer.publish(topic, sVal)) {
-          memset(buf, NULL, BUFFSIZE);
-          tmp = String(ssid) + "\n" + "Sent";
-          tmp.toCharArray(buf, BUFFSIZE);
-          writeToDisplay("Status", buf);
-          Serial.println("Msg Sent!");
+      if (!corrupt) {
+        memset(buf, NULL, BUFFSIZE);
+        tmp = String(ssid) + "\n" + "Sending";
+        tmp.toCharArray(buf, BUFFSIZE);
+        writeToDisplay("Status", buf);
+        if (sAddr[0] == '[') {         // Data
+          memset(topic, NULL, BUFFSIZE);
+          strcat(topic, "DATA/");
+          strcat(topic, sAddr);
+          Serial.println(topic);
+          Serial.println(sVal);
+          if (aerServer.publish(topic, sVal)) {
+            memset(buf, NULL, BUFFSIZE);
+            tmp = String(ssid) + "\n" + "Sent";
+            tmp.toCharArray(buf, BUFFSIZE);
+            writeToDisplay("Status", buf);
+            Serial.println("Msg Sent!");
+          }
+          else {
+            memset(buf, NULL, BUFFSIZE);
+            tmp = String(ssid) + "\n" + "Failed";
+            tmp.toCharArray(buf, BUFFSIZE);
+            writeToDisplay("Status", buf);
+            Serial.println("Msg Failed!");
+          }
         }
-        else {
-          memset(buf, NULL, BUFFSIZE);
-          tmp = String(ssid) + "\n" + "Failed";
-          tmp.toCharArray(buf, BUFFSIZE);
-          writeToDisplay("Status", buf);
-          Serial.println("Msg Failed!");
+        else {                         // Runtime Info
+          memset(topic, NULL, BUFFSIZE);
+          strcat(topic, "System/");
+          strcat(topic, sAddr);
+          Serial.println(topic);
+          Serial.println(sVal);
+          if (aerServer.publish(topic, sVal)) {
+            memset(buf, NULL, BUFFSIZE);
+            tmp = String(ssid) + "\n" + "Sent";
+            tmp.toCharArray(buf, BUFFSIZE);
+            writeToDisplay("Status", buf);
+            Serial.println("Msg Sent!");
+          }
+          else {
+            memset(buf, NULL, BUFFSIZE);
+            tmp = String(ssid) + "\n" + "Failed";
+            tmp.toCharArray(buf, BUFFSIZE);
+            writeToDisplay("Status", buf);
+            Serial.println("Msg Failed!");
+          }
         }
-      }
-      else {                         // Runtime Info
-        memset(topic, NULL, BUFFSIZE);
-        strcat(topic, "System/");
-        strcat(topic, sAddr);
-        Serial.println(topic);
-        Serial.println(sVal);
-        if (aerServer.publish(topic, sVal)) {
-          memset(buf, NULL, BUFFSIZE);
-          tmp = String(ssid) + "\n" + "Sent";
-          tmp.toCharArray(buf, BUFFSIZE);
-          writeToDisplay("Status", buf);
-          Serial.println("Msg Sent!");
+        if (!digitalRead(BUTTON)) {
+          Serial.readString();
+          btnHandler();
         }
-        else {
-          memset(buf, NULL, BUFFSIZE);
-          tmp = String(ssid) + "\n" + "Failed";
-          tmp.toCharArray(buf, BUFFSIZE);
-          writeToDisplay("Status", buf);
-          Serial.println("Msg Failed!");
-        }
-      }
-      if (!digitalRead(BUTTON)) {
-        Serial.readString();
-        btnHandler();
       }
     }
   }
