@@ -1,5 +1,6 @@
 /*
    Think Tank ESP Communication
+   Author: Benjamin Sabean
    Date: May 1, 2018
 */
 
@@ -15,7 +16,7 @@
 #include <Wire.h>           // For I2C comm
 
 #define DEVICE_ID 8         // This device's unique ID as seen in the database
-#define DEBUG true         // Flag to determine if debug info is displayed 
+#define DEBUG false         // Flag to determine if debug info is displayed 
 
 // Constants definition
 #define BUFFSIZE 80                    // Size for all character buffers
@@ -65,6 +66,14 @@ char* getString(int startAddr) {
   return str;
 }
 
+//------------------------------------------------------
+// Function to be run anytime a message is recieved 
+// from MQTT broker
+// @param topic The topic of the recieved message
+// @param payload The revieved message
+// @param length the lenght of the recieved message
+// @return void
+//-------------------------------------------------------
 void callback(char* topic, byte* payload, unsigned int length) {
   for (int i = 0; i < length; i++) {
     Serial.print((char)payload[i]);
@@ -218,21 +227,12 @@ void btnHandler() {
   }
 }
 
-//------------------------------------------------------
-// Clears all of EEPROM
-// @param none
-// @return void
-//-------------------------------------------------------
-void clearEEPROM() {
-  // write a 0 to all 512 bytes of the EEPROM
-  for (int i = 0; i < 512; i++)
-    EEPROM.write(i, 0);
-}
-
 void setup()
 {
+  // Set a callback function for MQTT
   void (*pCallback)(char*, byte*, unsigned int);
   pCallback = &callback;
+  
   // Set pins and baud rate
   Serial.begin(9600);
   delay(10);  // Wait for serial port to connect
@@ -245,8 +245,8 @@ void setup()
   // SSD1306 OLED display init
   display.begin(SSD1306_SWITCHCAPVCC);
   display.display();
-  delay(2000);
-  display.clearDisplay();  //
+  delay(2000);           // Display logo
+  display.clearDisplay();
 
   // Empty ssid and password buffers
   memset(ssid, NULL, BUFFSIZE);
@@ -256,6 +256,7 @@ void setup()
   EEPROM.begin(512);
   strcpy(ssid, getString(0));
   strcpy(password, getString(BUFFSIZE));
+  
   // Initialization and connection to WiFi
   writeToDisplay("Connecting", ssid);
   if (aerServer.init(ssid, password)) {
@@ -297,12 +298,12 @@ void loop()
       delay(10);
       memset(msg, NULL, BUFFSIZE);
 
-      for (int i = 0; i < BUFFSIZE; i ++) {
+      for (int i = 0; i < BUFFSIZE; i ++) {  // Get Address
         ch = Serial.read();
         if (String(ch) == String(DELIM)) {  // Check for delimeter
           break;
         }
-        msg[i] = ch;         // Get Address
+        msg[i] = ch;  
         delay(10);           // Wait for Serial buffer
         if (Serial.peek() == -1) {   // Check for missing data
           memset(buf, NULL, BUFFSIZE);
@@ -319,12 +320,12 @@ void loop()
       strcpy(sAddr, msg);
 
       memset(msg, NULL, BUFFSIZE);
-      for (int i = 0; i < BUFFSIZE; i ++) {
+      for (int i = 0; i < BUFFSIZE; i ++) {  // Get Data
         ch = Serial.read();
         if (String(ch) == String("\n")) {
           break;
         }
-        msg[i] = ch;         // Get Data
+        msg[i] = ch;         
         delay(10);           // Wait for Serial buffer
         if (Serial.peek() == -1) {
           memset(buf, NULL, BUFFSIZE);
